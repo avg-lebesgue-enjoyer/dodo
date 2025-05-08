@@ -1,0 +1,10 @@
+name = "dodo"
+version = "0.1.0"
+defaultTargets = ["dodo"]
+
+[[lean_lib]]
+name = "Dodo"
+
+[[lean_exe]]
+name = "dodo"
+root = "Main"
