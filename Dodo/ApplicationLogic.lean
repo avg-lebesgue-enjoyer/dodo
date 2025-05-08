@@ -29,6 +29,9 @@ abbrev EXIT_OK : UInt32 := 0
 /-- Tin. Not bothered to do more... -/
 abbrev EXIT_NOT_OK : UInt32 := 1
 
+/-- Message for user when the file can't be parsed. -/
+def FAILED_TO_PARSE : String := "dodo: Failed to parse `dodo.md`! You should probably fix it up manually..."
+
 
 
 /- SECTION: Get home directory -/
@@ -106,12 +109,16 @@ def test : IO UInt32 := do
   | none => return EXIT_NOT_OK
   | some home =>
   try
-    let fileContents ← readFromFile home
-    IO.eprintln s!"<!> File contents:"
-    IO.eprintln fileContents
-    return EXIT_OK
+    match (← Parser.dodo.run <$> readFromFile home) with
+    | none =>
+      IO.eprintln FAILED_TO_PARSE
+      return EXIT_NOT_OK
+    | some dodo =>
+      IO.eprintln s!"<!> Here's that dodo:"
+      IO.eprintln s!"{dodo}"
+      return EXIT_OK
   catch e =>
-    IO.eprintln s!"dodo: Error caught by Lean T^T. Wasn't expected by me... Here it is!"
+    IO.eprintln s!"dodo: Error caught by Lean T^T. Wasn't expected by me... Here it is ;~;!"
     IO.eprintln e.toString
     return EXIT_NOT_OK
 
