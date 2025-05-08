@@ -14,3 +14,7 @@ def List.removeNewline : List Char → List Char
 /-- Removes a trailing `'\n'`. -/
 def String.removeNewline : String → String :=
   List.asString ∘ List.removeNewline ∘ String.toList
+
+/-- Write a `Nat` to a ≥2-character `String`, prepending a `'0'` if necessary. -/
+def Nat.toString2 (n : Nat) : String :=
+  if n ≤ 9 then s!"0{n}" else s!"{n}"

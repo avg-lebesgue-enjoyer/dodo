@@ -12,9 +12,16 @@
 -/
 def Parser (γ : Type) : Type → Type := StateT (List γ) (OptionT Id)
 
-/-- Run the parser `p` on the string `s`. -/
-def Parser.runOnString (p : Parser Char α) (s : String) : Option α :=
-  Prod.fst <$> p s.toList
+/-- Run the parser `p` on the string `s`. Return `none` on parse failure OR INCOMPLETE PARSE. -/
+def Parser.run (p : Parser γ α) (s : List γ) : Option α := do
+  let (parsed, leftovers) ← p s
+  if ¬ leftovers.isEmpty then
+    failure
+  else
+    pure parsed
+
+/-- Run the parser `p` on the `String`. Return `none` on parse failure OR INCOMPLETE PARSE. -/
+def Parser.runOnString (p : Parser Char α) (s : String) : Option α := p.run s.toList
 
 instance Parser.instMonad : Monad (Parser γ) := StateT.instMonad
 instance Parser.instMonadStateOf : MonadStateOf (List γ) (Parser γ) where
@@ -147,5 +154,40 @@ namespace Parser
   -/
   def tokenSatisfying (tokenParser : Parser Char α) (predicate : α → Bool) : Parser Char α :=
     tokenParser.genericTokenSatisfying predicate Char.isWhitespace
+
+end Parser
+
+
+
+/- SECTION: `γ := String`-specific -/
+namespace Parser
+
+  /-- Parse a line holding exactly the given `String` (and fail if this line is not seen). -/
+  def exactlyLine (s : String) : Parser String String :=
+    exactlyChar s -- cursed lol
+
+  /-- Whitespace predicate when parsing lists of `String`s (as opposed to parsing `List Char`s). -/
+  def stringWhitespace : String → Bool :=
+    (·.all Char.isWhitespace)
+
+  /--
+    Parse a token line using the given `tokenParser`, discarding whitespace lines on
+    either side. Whitespace lines are determined using `Parser.stringWhitespace`.
+  -/
+  def tokenLine (tokenParser : Parser String α) : Parser String α :=
+    tokenParser.genericToken stringWhitespace
+
+  /--
+    Parse a token line using the given `tokenParser`, and return it only if the
+    token line satisfies the given `predicate`.
+  -/
+  def tokenLineSatisfying (tokenParser : Parser String α) (predicate : α → Bool) : Parser String α :=
+    tokenParser.genericTokenSatisfying predicate stringWhitespace
+
+  /-- Match exactly one line which can be fully parsed by `lineParser`. -/
+  def lineParsingVia (lineParser : Parser Char α) : Parser String α := do
+    match lineParser.runOnString (←one) with
+    | .none   => failure
+    | .some p => pure p
 
 end Parser

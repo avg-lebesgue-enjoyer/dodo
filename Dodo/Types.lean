@@ -3,6 +3,12 @@
   **PURPOSE:** Provide basic types for the `dodo` application.
 -/
 
+/- IMPORTS: -/
+
+import Dodo.Help
+
+
+
 /- SECTION: Global constants -/
 
 /-- The string representation of the `HourMinute.endOfDay` sentinel. -/
@@ -24,10 +30,6 @@ def END_OF_DAY : String := "e"
 -/
 inductive HourMinute : Type where
   /--
-    The end of the day. `hourMin _ _ < endOfDay`.
-  -/
-  | endOfDay : HourMinute
-  /--
     An actual hour-minute pair. The hour is encoded in 24-hour time. As strings, both
     fields are encoded using two digits:
     - 0 ↦ `"00"`
@@ -37,6 +39,11 @@ inductive HourMinute : Type where
     - 59 ↦ `"59"`
   -/
   | hourMin (hour : Nat) (minute : Nat) : HourMinute
+  /--
+    The end of the day. `hourMin _ _ < endOfDay`.
+  -/
+  | endOfDay : HourMinute
+  deriving Ord
 
 /--
   A date.
@@ -74,13 +81,78 @@ structure Date : Type where
   day : Nat
   /-- The hour-minute pair. -/
   hourMinute : HourMinute
+  deriving Ord
 
 instance HourMinute.instToString : ToString HourMinute where
   toString (hourMinute : HourMinute) : String :=
     match hourMinute with
     | .endOfDay => "e"
-    | .hourMin hour minute => s!"{hour} {minute}"
+    | .hourMin hour minute => s!"{hour.toString2} {minute.toString2}"
 
 instance Date.instToString : ToString Date where
   toString (date : Date) : String :=
-    s!"{date.year} {date.month} {date.day} {date.hourMinute}"
+    s!"{date.year} {date.month.toString2} {date.day.toString2} {date.hourMinute}"
+
+instance : Inhabited HourMinute where
+  default : HourMinute := .endOfDay
+
+instance : Inhabited Date where
+  default : Date := { year := 2000, month := 1, day := 1, hourMinute := default }
+
+
+
+/- SECTION: `ScreamLevel`, `Item`, `Block` -/
+
+/-- Level of screaming. -/
+inductive ScreamLevel : Type where
+  | silent  : ScreamLevel
+  | a       : ScreamLevel
+  | aa      : ScreamLevel
+  | aaa     : ScreamLevel
+  | A       : ScreamLevel
+  | AA      : ScreamLevel
+  | AAA     : ScreamLevel
+  deriving Ord
+
+instance ScreamLevel.instToString : ToString ScreamLevel where
+  toString
+    | .silent => ""
+    | .a      => "a"
+    | .aa     => "aa"
+    | .aaa    => "aaa"
+    | .A      => "A"
+    | .AA     => "AA"
+    | .AAA    => "AAA"
+
+/-- An item on the todo list. -/
+structure Item : Type where
+  /-- Brief description of the item. Must contain some non-whitespace character. -/
+  title : String
+  /-- A list of tags describing what the item is "for". E.g. a uni subject name. -/
+  forTags : List String
+  /-- A date by which the item must be complete. -/
+  byDate : Date
+  /-- A date on which to remind the user about the item. -/
+  remindMeBy : Option Date := none
+  /-- Level of screaming. -/
+  screamLevel : ScreamLevel := .silent
+
+-- FIXME: Change this later if needed
+instance Item.instToString : ToString Item where
+  toString item :=
+    let base := s!"[ ] {item.title}\n····FOR: {item.forTags.foldr (· ++ " " ++ ·) ""}\n····BY:  {item.byDate}"
+    let screamSuffix := match item.screamLevel with | .silent => "" | _ => s!"\n····SCREAM LEVEL: {item.screamLevel}"
+    let remindSuffix := match item.remindMeBy with | .none => "" | .some date => s!"\n····REMIND ME: {date}"
+    base ++ screamSuffix ++ remindSuffix
+
+/-- The state of the todo list. -/
+structure Dodo : Type where
+  /-- Date when the todo list was last updated. -/
+  lastWrittenDate : Date
+  /-- The items currently held in the todo list. -/
+  items : List Item
+
+/-- Mostly for debugging. -/
+instance Dodo.instToString : ToString Dodo where
+  toString dodo :=
+    s!"Last written date: {dodo.lastWrittenDate}\nThe rest of the dodo:\n{dodo.items.map ToString.toString |>.foldr (· ++ "\n" ++ ·) ""}"

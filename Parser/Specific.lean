@@ -21,4 +21,8 @@ namespace Parser
   def nat : Parser Char Nat :=
     List.digitsToNat <$> some digit
 
+  /-- Parse an alphanumeric string. -/
+  def alphaNumeric : Parser Char String :=
+    List.asString <$> many (oneIf Char.isAlphanum)
+
 end Parser
