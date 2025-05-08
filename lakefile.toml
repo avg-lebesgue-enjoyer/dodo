@@ -5,6 +5,9 @@ defaultTargets = ["dodo"]
 [[lean_lib]]
 name = "Dodo"
 
+[[lean_lib]]
+name = "Parser"
+
 [[lean_exe]]
 name = "dodo"
 root = "Main"
