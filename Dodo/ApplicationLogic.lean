@@ -6,6 +6,7 @@
 /- IMPORTS: -/
 
 import Dodo.Help
+import Dodo.Terminal
 import Dodo.Types
 import Dodo.Parsers
 
@@ -68,6 +69,27 @@ end «get date»
 
 
 
+/- SECTION: Get terminal dimensions -/
+section «get terminal dimensions»
+
+  def TERMINAL_LINES_COLUMNS_COMMAND : String := "tput"
+  def TERMINAL_LINES_ARGUMENTS : Array String := #["lines"]
+  def TERMINAL_COLUMNS_ARGUMENTS : Array String := #["cols"]
+
+  /-- Get the terminal dimensions. Return `none` on subtask failure. -/
+  def getTerminalDimensions : IO (Option (Nat × Nat)) := do
+    let lines ← IO.Process.output { cmd := TERMINAL_LINES_COLUMNS_COMMAND, args := TERMINAL_LINES_ARGUMENTS }
+    if lines.exitCode ≠ 0 then
+      return none
+    let cols ← IO.Process.output { cmd := TERMINAL_LINES_COLUMNS_COMMAND, args := TERMINAL_COLUMNS_ARGUMENTS }
+    if cols.exitCode ≠ 0 then
+      return none
+    pure <| (·, ·) <$> Parser.nat.runOnString lines.stdout <*> Parser.nat.runOnString cols.stdout
+
+end «get terminal dimensions»
+
+
+
 /- SECTION: Back up file -/
 section «back up file»
 
@@ -102,6 +124,52 @@ end «read file to memory»
 
 
 
+/- SECTION: Write `Dodo` to file -/
+section «write to file»
+
+  /-- Collect together the string to be written to file. This depends on the current date, which may fail to be obtained. -/
+  def Dodo.toOutputString (dodo : Dodo) : IO (Option String) := do
+    match (←getDate) with
+    | none      => pure none
+    | some date => pure s!"{WRITTEN} {date}\n\n{dodo}{EXTINCTION}" -- `s!"{dodo}"` has a trailing `\n`
+
+  /-- Write the given `Dodo` to file. Return `.none` on any error. -/
+  def Dodo.writeToFile (dodo : Dodo) : ReaderT HomeDirectory IO (Option Unit) := do
+    match (←dodo.toOutputString) with
+    | none => pure none
+    | some outputString =>
+      IO.FS.writeFile (DODO_FILE (←readThe HomeDirectory)) outputString
+      pure ()
+
+end «write to file»
+
+
+
+/- SECTION: Display `Dodo` data to terminal -/
+section «display to terminal»
+
+  /--
+    Write the list of items to terminal.
+
+    The `currentDate` is used to conditionally highlight the `"REMIND ME:"` dates.
+
+    REQUIRES: `dodo.items` is sorted.
+  -/
+  def Dodo.writeToTerminal (dodo : Dodo) (currentDate : Date) : IO Unit := do
+    let datedItems : List (Date × List Item) := (fun (c, is) => (c.toEndOfDate, is)) <$> Dodo.getDatedItems.run' dodo
+    let mut index : Nat := (datedItems.map (fun (_, items) => items.length) |>.sum) - 1
+    for (date, items) in datedItems.reverse do
+      IO.println <| DueDay.toTerminal s!"-- <= {date}"
+      for item in items.reverse do
+        IO.println <| item.toTerminal currentDate index ++ "\n"
+        index := index - 1
+
+end «display to terminal»
+
+
+
+
+
 /- TESTING:: -/
 
 def test : IO UInt32 := do
@@ -114,9 +182,13 @@ def test : IO UInt32 := do
       IO.eprintln FAILED_TO_PARSE
       return EXIT_NOT_OK
     | some dodo =>
-      IO.eprintln s!"<!> Here's that dodo:"
-      IO.eprintln s!"{dodo}"
-      return EXIT_OK
+      match (← dodo.writeToFile home) with
+      | none =>
+        IO.eprintln "<!> Error writing dodo!"
+        return EXIT_NOT_OK
+      | some () =>
+        IO.eprintln s!"<!> Writing was successful!"
+        return EXIT_OK
   catch e =>
     IO.eprintln s!"dodo: Error caught by Lean T^T. Wasn't expected by me... Here it is ;~;!"
     IO.eprintln e.toString

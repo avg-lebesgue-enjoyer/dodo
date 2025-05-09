@@ -12,6 +12,9 @@ import Dodo.Types
 
 /- SECTION: Global constants -/
 
+/-- Marker for end of file. -/
+def EXTINCTION : String := "extinction"
+
 /-- Empty checkbox seen in the file. Marks the beginning of an `Item`. -/
 def EMPTY_CHECKBOX : String := "[ ]"
 /-- Indentation level for sub-details of an `Item`. -/
@@ -132,7 +135,7 @@ section «`dodo.md` grammar» -- yes, this is only in a `section` so that I can 
 end «`dodo.md` grammar»
 
 /-- Parse the `End` of file. -/
-def Parser.end : Parser String Unit := discard <| Parser.tokenLine (Parser.exactlyLine "extinction")
+def Parser.end : Parser String Unit := discard <| Parser.tokenLine (Parser.exactlyLine EXTINCTION)
 
 /-- Parse a non-`silent` `ScreamLevel`. -/
 def Parser.screamLevel : Parser Char ScreamLevel := do
